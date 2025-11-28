@@ -9,21 +9,30 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
   const { settings } = useSettings()
   const totals = calculateQuote(job, settings)
 
-  const shareText = () => {
+  const quoteLines = () => {
     const lines: string[] = []
     lines.push(`${settings.companyName} — Stump Quote`)
     if (job.clientName) lines.push(`Client: ${job.clientName}`)
     if (job.address) lines.push(`Address: ${job.address}`)
     lines.push(`Stumps: ${job.stumps.length}`)
+    lines.push('')
     job.stumps.forEach((s, idx) => {
-      const photos = s.photos?.length ? ` • ${s.photos.length} photo(s)` : ''
-      lines.push(`#${idx + 1} ${s.diameter}"${s.locationDescription ? ` • ${s.locationDescription}` : ''}${photos}`)
+      lines.push(`Stump ${idx + 1}`)
+      lines.push(`- Diameter: ${s.diameter}"`)
+      if (s.locationDescription) lines.push(`- Location: ${s.locationDescription}`)
+      const photos = s.photos?.length
+        ? `- Photos: ${s.photos.length} (not attached; available in app)`
+        : '- Photos: none'
+      lines.push(photos)
+      lines.push('')
     })
     lines.push(`Subtotal: ${formatCurrency(totals.subtotal, settings.currency)}`)
-    if (settings.taxEnabled) lines.push(`HST: ${formatCurrency(totals.taxAmount, settings.currency)}`)
+    if (settings.taxEnabled) lines.push(`HST (${(settings.taxRate * 100).toFixed(0)}%): ${formatCurrency(totals.taxAmount, settings.currency)}`)
     lines.push(`Total: ${formatCurrency(totals.total, settings.currency)}`)
-    return lines.join('\n')
+    return lines
   }
+
+  const shareText = () => quoteLines().join('\n')
 
   const handleShare = async () => {
     const text = shareText()
@@ -42,6 +51,13 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
     }
   }
 
+
+  const handleEmail = () => {
+    const subject = `${settings.companyName} — Stump Quote`
+    const body = quoteLines().join('\n')
+    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    window.location.href = mailto
+  }
   const handlePdf = async () => {
     const el = document.getElementById('quote-summary')
     if (!el) return
@@ -62,6 +78,13 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
         disabled={disabled}
       >
         Share / Copy
+      </button>
+      <button
+        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-yellow-400 disabled:opacity-50"
+        onClick={handleEmail}
+        disabled={disabled}
+      >
+        Email quote
       </button>
       <button
         className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-yellow-400 disabled:opacity-50"

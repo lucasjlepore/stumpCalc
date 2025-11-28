@@ -80,12 +80,42 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
   const handlePdf = async () => {
     const el = document.getElementById('quote-summary')
     if (!el) return
-    const canvas = await html2canvas(el as HTMLElement, { scale: 2 })
-    const imgData = canvas.toDataURL('image/png')
+
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' })
     const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = (canvas.height * pageWidth) / canvas.width
-    pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight)
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const margin = 16
+    const usableWidth = pageWidth - margin * 2
+
+    // 1) add summary snapshot
+    const summaryCanvas = await html2canvas(el as HTMLElement, { scale: 2 })
+    const summaryData = summaryCanvas.toDataURL('image/png')
+    const summaryHeight = (summaryCanvas.height * usableWidth) / summaryCanvas.width
+    pdf.addImage(summaryData, 'PNG', margin, margin, usableWidth, summaryHeight)
+
+    let y = margin + summaryHeight + 12
+
+    // 2) add photos
+    for (let si = 0; si < job.stumps.length; si++) {
+      const stump = job.stumps[si]
+      if (!stump.photos || !stump.photos.length) continue
+
+      for (let pi = 0; pi < stump.photos.length; pi++) {
+        const photo = stump.photos[pi]
+        const img = await dataUrlToImage(photo.dataUrl)
+        if (!img) continue
+        const dims = scaleDown(img.width, img.height, usableWidth)
+        if (y + dims.height + 20 > pageHeight) {
+          pdf.addPage()
+          y = margin
+        }
+        pdf.text(`Stump ${si + 1} photo ${pi + 1}`, margin, y)
+        y += 6
+        pdf.addImage(img, 'JPEG', margin, y, dims.width, dims.height)
+        y += dims.height + 12
+      }
+    }
+
     pdf.save('stump-quote.pdf')
   }
 
@@ -156,4 +186,16 @@ const scaleDown = (w: number, h: number, maxDim: number) => {
   const ratio = w / h
   if (w >= h) return { width: maxDim, height: Math.round(maxDim / ratio) }
   return { width: Math.round(maxDim * ratio), height: maxDim }
+}
+
+const dataUrlToImage = async (dataUrl: string): Promise<HTMLImageElement | null> => {
+  try {
+    const img = new Image()
+    img.src = dataUrl
+    await img.decode()
+    return img
+  } catch (e) {
+    console.warn('decode image failed', e)
+    return null
+  }
 }

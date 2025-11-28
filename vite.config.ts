@@ -4,8 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  // Relative base so it works on custom domain root and GitHub Pages subpath
-  base: './',
+  // Served at project pages path
+  base: '/forestcitystumpworks/',
   plugins: [
     react(),
     VitePWA({

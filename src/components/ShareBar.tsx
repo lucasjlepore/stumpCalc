@@ -79,13 +79,6 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
     }
   }
 
-  const handleEmail = async () => {
-    const subject = `${settings.companyName} — Stump Quote`
-    const body = shareText()
-    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    window.location.href = mailto
-  }
-
   const handlePdf = async () => {
     const el = document.getElementById('quote-summary')
     if (!el) return
@@ -136,13 +129,6 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
         disabled={disabled}
       >
         Share / Copy
-      </button>
-      <button
-        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-yellow-400 disabled:opacity-50"
-        onClick={handleEmail}
-        disabled={disabled}
-      >
-        Email quote
       </button>
       <button
         className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-yellow-400 disabled:opacity-50"

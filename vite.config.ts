@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vite.dev/config/
 export default defineConfig(() => ({
   // Served at GitHub Pages project path
-  base: '/stumpCalc/',
+  base: '/forestcitystumpworks/',
   plugins: [
     react(),
     VitePWA({

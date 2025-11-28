@@ -14,6 +14,13 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
   const { settings } = useSettings()
   const totals = calculateQuote(job, settings)
 
+  const signatureLines = () => [
+    settings.companyName,
+    'Lucas Lepore',
+    '226-555-0123',
+    'forestcitystumpworks.com',
+  ]
+
   const quoteLines = () => {
     const lines: string[] = []
     lines.push(`${settings.companyName}`)
@@ -36,6 +43,8 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
     lines.push(`Total: ${formatCurrency(totals.total, settings.currency)}`)
     lines.push('')
     lines.push('Thank you for the opportunity to quote. Please reply to approve and schedule.')
+    lines.push('')
+    lines.push(...signatureLines())
     return lines
   }
 

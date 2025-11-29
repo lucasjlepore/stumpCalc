@@ -1,4 +1,3 @@
-import emailjs from '@emailjs/browser'
 import { useJob } from '../job-context'
 import { useSettings } from '../settings-context'
 import { calculateQuote, formatCurrency } from '../utils/calc'
@@ -81,51 +80,6 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
   }
 
 
-  const handleSendEmailJs = async () => {
-    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID
-    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID
-    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-    if (!serviceId || !templateId || !publicKey) {
-      alert('EmailJS not configured')
-      return
-    }
-    if (!job.clientEmail) {
-      alert('Add a client email')
-      return
-    }
-
-    const attachments = await buildPhotoFiles(job.stumps)
-    const pdfFile = await buildQuotePdfFile(job, settings, totals, signatureLines())
-    if (pdfFile) attachments.unshift(pdfFile)
-
-    const attachmentParams = await Promise.all(
-      attachments.map(async (file) => ({
-        name: file.name,
-        data: await fileToBase64(file),
-      }))
-    )
-
-    const html = quoteLines().join('<br>')
-
-    try {
-      await emailjs.send(
-        serviceId,
-        templateId,
-        {
-          to_email: job.clientEmail,
-          subject: `${settings.companyName} — Stump Quote`,
-          message_html: html,
-          company_name: settings.companyName,
-          attachments: attachmentParams,
-        },
-        publicKey
-      )
-      alert('Quote sent via EmailJS')
-    } catch (err) {
-      console.warn('EmailJS send failed', err)
-      alert('Email send failed; check console')
-    }
-  }
   const handlePdf = async () => {
     const el = document.getElementById('quote-summary')
     if (!el) return
@@ -181,13 +135,6 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
         disabled={disabled}
       >
         Share / Copy
-      </button>
-      <button
-        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-yellow-400 disabled:opacity-50"
-        onClick={handleSendEmailJs}
-        disabled={disabled}
-      >
-        Send via EmailJS
       </button>
       <button
         className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-yellow-400 disabled:opacity-50"
@@ -311,11 +258,3 @@ const dataUrlToImage = async (dataUrl: string): Promise<HTMLImageElement | null>
     return null
   }
 }
-
-const fileToBase64 = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve((reader.result as string).split(',')[1] || '')
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })

@@ -5,7 +5,7 @@ Offline-ready (PWA) stump grinding quote tool hosted on GitHub Pages.
 ## What it does
 - Single-page React app (Vite + Tailwind) with local (browser) storage.
 - Pricing: flat $5/inch per stump; HST toggle at 13%. No volume discounts.
-- Per-stump inputs: diameter, location note, up to 3 photos (kept in memory for sharing).
+- Per-stump inputs: diameter, count, location note, optional notes/complexity flags, up to 3 photos (kept in memory for sharing).
 - Live totals with Subtotal, HST, Total.
 - Sharing/export:
   - Share/Copy text (formatted quote) with up to 3 compressed photos when Web Share supports files.

@@ -17,7 +17,11 @@ export type Photo = {
 export type Stump = {
   id: string
   diameter: number
+  count: number
   locationDescription?: string
+  notes?: string
+  isComplex: boolean
+  isTightAccess: boolean
   photos: Photo[]
 }
 

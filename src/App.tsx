@@ -11,27 +11,37 @@ function App() {
   const { settings } = useSettings()
 
   const totals = useMemo(() => calculateQuote(job, settings), [job, settings])
-  const hasInvalidDiameters = job.stumps.some((s) => !s.diameter || s.diameter <= 0)
+  const hasInvalidStumps = job.stumps.some((s) => !s.diameter || s.diameter <= 0 || !s.count || s.count <= 0)
+  const invalidCount = job.stumps.filter((s) => !s.diameter || s.diameter <= 0 || !s.count || s.count <= 0).length
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 px-4 pb-24 pt-6">
-      <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-yellow-300">Forest City Stump Works</h1>
-        </div>
-        <div className="flex gap-2 text-sm text-slate-200">
-          <input
-            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
-            placeholder="Client name"
-            value={job.clientName}
-            onChange={(e) => updateJob({ clientName: e.target.value })}
-          />
-          <input
-            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
-            placeholder="Address"
-            value={job.address}
-            onChange={(e) => updateJob({ address: e.target.value })}
-          />
+    <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-4 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6">
+      <header className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 shadow-sm">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl font-bold text-yellow-300">Forest City Stump Works</h1>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Quote builder</p>
+          </div>
+          <div className="grid gap-3 text-sm text-slate-200 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-slate-400">Client name</span>
+              <input
+                className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                placeholder="Client name"
+                value={job.clientName}
+                onChange={(e) => updateJob({ clientName: e.target.value })}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-slate-400">Address</span>
+              <input
+                className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2"
+                placeholder="Address"
+                value={job.address}
+                onChange={(e) => updateJob({ address: e.target.value })}
+              />
+            </label>
+          </div>
         </div>
       </header>
 
@@ -39,7 +49,10 @@ function App() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between text-slate-200">
-          <h2 className="text-lg font-semibold">Stumps ({job.stumps.length})</h2>
+          <div>
+            <h2 className="text-lg font-semibold">Stumps ({job.stumps.length})</h2>
+            <p className="text-xs text-slate-400">Add details for each stump, including location and photos.</p>
+          </div>
           <button
             onClick={addStump}
             className="rounded-lg border border-yellow-400 bg-yellow-400/10 px-3 py-2 text-sm font-medium text-yellow-200 hover:bg-yellow-400/20"
@@ -57,7 +70,11 @@ function App() {
       <section id="quote-summary" className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-200">
         <h3 className="font-semibold text-slate-50">Summary</h3>
         <p className="text-slate-300">{job.stumps.length} stump(s)</p>
-        {hasInvalidDiameters && <p className="text-red-400">Enter diameter for all stumps to get a valid quote.</p>}
+        {hasInvalidStumps && (
+          <p className="text-red-400">
+            Enter diameter and count for all stumps to get a valid quote. {invalidCount} missing.
+          </p>
+        )}
         <div className="mt-2 space-y-1 text-slate-200">
           <p>Subtotal: {formatCurrency(totals.subtotal, settings.currency)}</p>
           {settings.taxEnabled && <p>HST ({(settings.taxRate * 100).toFixed(0)}%): {formatCurrency(totals.taxAmount, settings.currency)}</p>}
@@ -65,7 +82,7 @@ function App() {
         </div>
       </section>
 
-      <FooterTotals disabled={hasInvalidDiameters} />
+      <FooterTotals disabled={hasInvalidStumps} />
     </div>
   )
 }

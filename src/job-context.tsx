@@ -15,7 +15,11 @@ const newJob = (): Job => ({
     {
       id: uuidv4(),
       diameter: 0,
+      count: 1,
       locationDescription: 'Front yard',
+      notes: '',
+      isComplex: false,
+      isTightAccess: false,
       photos: [],
     },
   ],
@@ -34,22 +38,37 @@ const JobContext = createContext<JobContextValue | undefined>(undefined)
 
 export const JobProvider = ({ children }: { children: ReactNode }) => {
   const [job, setJob] = useState<Job>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        const stumps = Array.isArray(parsed?.stumps)
-          ? parsed.stumps.map((s: any) => ({ ...s, photos: s.photos ?? [] }))
-          : newJob().stumps
-        return { ...newJob(), ...parsed, stumps }
-      } catch (err) {
-        console.warn('Failed to parse saved job', err)
+    const canUseStorage = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+    if (canUseStorage) {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          const stumps = Array.isArray(parsed?.stumps)
+            ? parsed.stumps.map((s: any, idx: number) => ({
+                id: s.id || uuidv4(),
+                diameter: Number.isFinite(s.diameter) ? s.diameter : 0,
+                count: Number.isFinite(s.count) && s.count > 0 ? s.count : 1,
+                locationDescription: s.locationDescription ?? `Stump ${idx + 1}`,
+                notes: s.notes ?? '',
+                isComplex: Boolean(s.isComplex),
+                isTightAccess: Boolean(s.isTightAccess),
+                photos: s.photos ?? [],
+              }))
+            : newJob().stumps
+          return { ...newJob(), ...parsed, stumps }
+        } catch (err) {
+          console.warn('Failed to parse saved job', err)
+        }
       }
     }
     return newJob()
   })
 
   useEffect(() => {
+    const canUseStorage = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+    if (!canUseStorage) return
+
     try {
       const jobToPersist = {
         ...job,
@@ -78,7 +97,11 @@ export const JobProvider = ({ children }: { children: ReactNode }) => {
           {
             id: uuidv4(),
             diameter: 0,
+            count: 1,
             locationDescription: `Stump ${prev.stumps.length + 1}`,
+            notes: '',
+            isComplex: false,
+            isTightAccess: false,
             photos: [],
           },
         ],

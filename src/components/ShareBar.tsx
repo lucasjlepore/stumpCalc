@@ -1,7 +1,8 @@
+import { useMemo, useState } from 'react'
 import { useJob } from '../job-context'
 import { useSettings } from '../settings-context'
-import { calculateQuote, formatCurrency } from '../utils/calc'
-import type { Photo, Job, AppSettings, QuoteTotals } from '../types'
+import { calculateQuote, formatCurrency, stumpLineTotal } from '../utils/calc'
+import type { Photo, Job, AppSettings, QuoteTotals, Stump } from '../types'
 
 const MAX_SHARED_PHOTOS = 3
 const TARGET_MAX_DIM = 800
@@ -10,7 +11,13 @@ const JPEG_QUALITY = 0.7
 export const ShareBar = ({ disabled }: { disabled: boolean }) => {
   const { job } = useJob()
   const { settings } = useSettings()
-  const totals = calculateQuote(job, settings)
+  const totals = useMemo(() => calculateQuote(job, settings), [job, settings])
+  const [statusMessage, setStatusMessage] = useState('')
+
+  const shareAvailable = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+  const fileShareAvailable = shareAvailable && typeof navigator.canShare === 'function'
+  const clipboardAvailable = typeof navigator !== 'undefined' && !!navigator.clipboard?.writeText
+  const hasAnySharePath = shareAvailable || clipboardAvailable
 
   const signatureLines = () => [
     settings.companyName,
@@ -29,11 +36,18 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
     if (job.address) lines.push(`Address: ${job.address}`)
     lines.push(`Stumps: ${job.stumps.length}`)
     lines.push('')
-    job.stumps.forEach((s, idx) => {
-      const photosCount = s.photos?.length || 0
-      lines.push(`Stump ${idx + 1}: ${s.diameter}"${s.locationDescription ? ` • ${s.locationDescription}` : ''}`)
-      lines.push(`  Photos: ${photosCount}`)
-    })
+      job.stumps.forEach((s, idx) => {
+        const photosCount = s.photos?.length || 0
+        const adjustments = describeAdjustments(s)
+        const lineTotal = stumpLineTotal(s, settings)
+        lines.push(
+          `Stump ${idx + 1}: ${s.diameter}\" x${s.count || 1}${s.locationDescription ? ` • ${s.locationDescription}` : ''}`,
+        )
+        if (adjustments) lines.push(`  Adjustments: ${adjustments}`)
+        if (s.notes) lines.push(`  Notes: ${s.notes}`)
+        lines.push(`  Photos: ${photosCount}`)
+        lines.push(`  Line total: ${formatCurrency(lineTotal, settings.currency)}`)
+      })
     lines.push('')
     lines.push(`Subtotal: ${formatCurrency(totals.subtotal, settings.currency)}`)
     if (settings.taxEnabled)
@@ -50,37 +64,47 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
 
   const handleShare = async () => {
     const text = shareText()
-    const files = await buildPhotoFiles(job.stumps)
-    const pdfFile = await buildQuotePdfFile(job, settings, totals, signatureLines())
-    if (pdfFile) files.unshift(pdfFile)
+    setStatusMessage('')
 
-    if (files.length && navigator.canShare && navigator.canShare({ files })) {
+    if (shareAvailable) {
       try {
-        await navigator.share({ text, title: 'Stump quote', files })
-        return
-      } catch (e) {
-        console.warn('share with files failed, fallback to text', e)
-      }
-    }
+        const files: File[] = []
+        if (fileShareAvailable) {
+          const photoFiles = await buildPhotoFiles(job.stumps)
+          const pdfFile = await buildQuotePdfFile(job, settings, totals, signatureLines())
+          if (pdfFile) files.push(pdfFile)
+          files.push(...photoFiles)
+        }
 
-    if (navigator.share) {
-      try {
+        if (files.length && navigator.canShare && navigator.canShare({ files })) {
+          await navigator.share({ text, title: 'Stump quote', files })
+          setStatusMessage('Shared with photos attached.')
+          return
+        }
+
         await navigator.share({ text, title: 'Stump quote' })
+        setStatusMessage('Quote shared.')
         return
       } catch (e) {
-        // fall through to clipboard
+        console.warn('share failed, trying clipboard', e)
       }
     }
 
-    try {
-      await navigator.clipboard.writeText(text)
-    } catch (err) {
-      console.warn('share/clipboard failed', err)
+    if (clipboardAvailable) {
+      try {
+        await navigator.clipboard.writeText(text)
+        setStatusMessage('Copied quote to clipboard.')
+        return
+      } catch (err) {
+        console.warn('clipboard write failed', err)
+      }
     }
+
+    setStatusMessage('Sharing is not available on this device.')
   }
 
-
   const handlePdf = async () => {
+    if (typeof document === 'undefined') return
     const el = document.getElementById('quote-summary')
     if (!el) return
 
@@ -128,25 +152,36 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
   }
 
   return (
-    <div className="flex gap-2">
-      <button
-        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-yellow-400 disabled:opacity-50"
-        onClick={handleShare}
-        disabled={disabled}
-      >
-        Share / Copy
-      </button>
-      <button
-        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-yellow-400 disabled:opacity-50"
-        onClick={handlePdf}
-        disabled={disabled}
-      >
-        Export PDF
-      </button>
+    <div className="flex flex-col gap-2 text-slate-200">
+      <div className="flex items-center gap-2">
+        <button
+          className="rounded-lg border border-yellow-400 bg-yellow-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm hover:border-yellow-300 hover:bg-yellow-400 disabled:opacity-50"
+          onClick={handleShare}
+          disabled={disabled || !hasAnySharePath}
+          title={!hasAnySharePath ? 'Sharing is not available in this browser' : undefined}
+        >
+          {shareAvailable ? 'Share quote' : 'Copy quote'}
+        </button>
+        <button
+          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-yellow-400 disabled:opacity-50"
+          onClick={handlePdf}
+          disabled={disabled}
+        >
+          Export PDF
+        </button>
+        {!hasAnySharePath && (
+          <p className="text-xs text-red-300">Sharing is unavailable in this browser.</p>
+        )}
+      </div>
+      {statusMessage && <p className="text-xs text-slate-300" aria-live="polite">{statusMessage}</p>}
     </div>
   )
 }
 
+const describeAdjustments = (stump: Stump) => {
+  const labels = [stump.isComplex && 'Complex', stump.isTightAccess && 'Tight access'].filter(Boolean)
+  return labels.join(', ')
+}
 
 const buildQuotePdfFile = async (job: Job, settings: AppSettings, totals: QuoteTotals, sig: string[]): Promise<File | null> => {
   const { default: jsPDF } = await import('jspdf')
@@ -165,27 +200,37 @@ const buildQuotePdfFile = async (job: Job, settings: AppSettings, totals: QuoteT
   y += lineHeight
   pdf.text(`Quote ID: ${job.id.slice(0, 8)}`, margin, y)
   y += lineHeight
-  if (job.clientName) { pdf.text(`Client: ${job.clientName}`, margin, y); y += lineHeight }
-  if (job.address) { pdf.text(`Address: ${job.address}`, margin, y); y += lineHeight }
+  if (job.clientName) {
+    pdf.text(`Client: ${job.clientName}`, margin, y)
+    y += lineHeight
+  }
+  if (job.address) {
+    pdf.text(`Address: ${job.address}`, margin, y)
+    y += lineHeight
+  }
   y += lineHeight
 
   // table header
   pdf.setFont('helvetica', 'bold')
   pdf.text('Stump', margin, y)
-  pdf.text('Diameter', margin + 80, y)
-  pdf.text('Location', margin + 160, y)
-  pdf.text('Photos', margin + 320, y)
-  pdf.setFont('helvetica', 'normal')
-  y += lineHeight
-  pdf.line(margin, y - 10, margin + 360, y - 10)
-
-  job.stumps.forEach((s, idx) => {
-    pdf.text(`Stump ${idx + 1}`, margin, y)
-    pdf.text(`${s.diameter}"`, margin + 80, y)
-    pdf.text(s.locationDescription || '-', margin + 160, y, { maxWidth: 150 })
-    pdf.text(`${s.photos?.length || 0}`, margin + 320, y)
+    pdf.text('Diameter', margin + 80, y)
+    pdf.text('Count', margin + 150, y)
+    pdf.text('Adjust', margin + 220, y)
+    pdf.text('Photos', margin + 280, y)
+    pdf.text('Line', margin + 340, y)
+    pdf.setFont('helvetica', 'normal')
     y += lineHeight
-  })
+    pdf.line(margin, y - 10, margin + 380, y - 10)
+
+    job.stumps.forEach((s, idx) => {
+      pdf.text(`Stump ${idx + 1}`, margin, y)
+      pdf.text(`${s.diameter}\"`, margin + 80, y)
+      pdf.text(`${s.count || 1}`, margin + 150, y)
+      pdf.text(describeAdjustments(s) || '-', margin + 220, y, { maxWidth: 60 })
+      pdf.text(`${s.photos?.length || 0}`, margin + 280, y)
+      pdf.text(formatCurrency(stumpLineTotal(s, settings), settings.currency), margin + 340, y, { maxWidth: 120 })
+      y += lineHeight
+    })
 
   y += lineHeight
   pdf.text(`Subtotal: ${formatCurrency(totals.subtotal, settings.currency)}`, margin, y)
@@ -199,7 +244,10 @@ const buildQuotePdfFile = async (job: Job, settings: AppSettings, totals: QuoteT
 
   pdf.text('Thank you for the opportunity to quote. Please reply to approve and schedule.', margin, y, { maxWidth: 360 })
   y += lineHeight
-  sig.forEach((line) => { pdf.text(line, margin, y); y += lineHeight })
+  sig.forEach((line) => {
+    pdf.text(line, margin, y)
+    y += lineHeight
+  })
 
   const blob = pdf.output('blob')
   return new File([blob], 'stump-quote.pdf', { type: 'application/pdf' })

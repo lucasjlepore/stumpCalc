@@ -42,7 +42,7 @@ export const PhotoGrid = ({ photos, onAdd, onRemove, max = 3 }: PhotoGridProps) 
         ))}
         {photos.length < max && (
           <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border border-dashed border-slate-700 text-slate-300 hover:border-yellow-400">
-            <input type="file" accept="image/*" multiple className="hidden" onChange={handleFile} />
+            <input type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={handleFile} />
             <span className="text-sm">+ Photo</span>
           </label>
         )}

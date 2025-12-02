@@ -22,18 +22,23 @@ const SettingsContext = createContext<SettingsContextValue | undefined>(undefine
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      try {
-        return { ...defaultSettings, ...JSON.parse(saved) }
-      } catch (err) {
-        console.warn('Failed to parse saved settings', err)
+    const canUseStorage = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+    if (canUseStorage) {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        try {
+          return { ...defaultSettings, ...JSON.parse(saved) }
+        } catch (err) {
+          console.warn('Failed to parse saved settings', err)
+        }
       }
     }
     return defaultSettings
   })
 
   useEffect(() => {
+    const canUseStorage = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+    if (!canUseStorage) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
   }, [settings])
 

@@ -224,7 +224,12 @@ const copyQuoteToClipboard = async (text: string, clipboardAvailable: boolean) =
   }
 }
 
-const buildQuotePdfFile = async (job: Job, settings: AppSettings, totals: QuoteTotals, sig: string[]): Promise<File | null> => {
+const buildQuotePdfFile = async (
+  job: Job,
+  settings: AppSettings,
+  totals: QuoteTotals,
+  sig: string[],
+): Promise<File | null> => {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' })
   const margin = 24
   const lineHeight = 16
@@ -276,7 +281,11 @@ const buildQuotePdfFile = async (job: Job, settings: AppSettings, totals: QuoteT
   pdf.text(`Subtotal: ${formatCurrency(totals.subtotal, settings.currency)}`, margin, y)
   y += lineHeight
   if (settings.taxEnabled) {
-    pdf.text(`HST (${(settings.taxRate * 100).toFixed(0)}%): ${formatCurrency(totals.taxAmount, settings.currency)}`, margin, y)
+    pdf.text(
+      `HST (${(settings.taxRate * 100).toFixed(0)}%): ${formatCurrency(totals.taxAmount, settings.currency)}`,
+      margin,
+      y,
+    )
     y += lineHeight
   }
   pdf.text(`Total: ${formatCurrency(totals.total, settings.currency)}`, margin, y)

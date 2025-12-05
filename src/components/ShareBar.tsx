@@ -19,7 +19,8 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
   const shareAvailable = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
   const fileShareAvailable = shareAvailable && typeof navigator.canShare === 'function'
   const clipboardAvailable = typeof navigator !== 'undefined' && !!navigator.clipboard?.writeText
-  const hasAnySharePath = shareAvailable || clipboardAvailable
+  const legacyClipboardPossible = typeof document !== 'undefined'
+  const hasAnySharePath = shareAvailable || clipboardAvailable || legacyClipboardPossible
 
   const signatureLines = () => [
     settings.companyName,
@@ -38,18 +39,18 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
     if (job.address) lines.push(`Address: ${job.address}`)
     lines.push(`Stumps: ${job.stumps.length}`)
     lines.push('')
-      job.stumps.forEach((s, idx) => {
-        const photosCount = s.photos?.length || 0
-        const adjustments = describeAdjustments(s)
-        const lineTotal = stumpLineTotal(s, settings)
-        lines.push(
-          `Stump ${idx + 1}: ${s.diameter}\" x${s.count || 1}${s.locationDescription ? ` • ${s.locationDescription}` : ''}`,
-        )
-        if (adjustments) lines.push(`  Adjustments: ${adjustments}`)
-        if (s.notes) lines.push(`  Notes: ${s.notes}`)
-        lines.push(`  Photos: ${photosCount}`)
-        lines.push(`  Line total: ${formatCurrency(lineTotal, settings.currency)}`)
-      })
+    job.stumps.forEach((s, idx) => {
+      const photosCount = s.photos?.length || 0
+      const adjustments = describeAdjustments(s)
+      const lineTotal = stumpLineTotal(s, settings)
+      lines.push(
+        `Stump ${idx + 1}: ${s.diameter}" x${s.count || 1}${s.locationDescription ? ` • ${s.locationDescription}` : ''}`,
+      )
+      if (adjustments) lines.push(`  Adjustments: ${adjustments}`)
+      if (s.notes) lines.push(`  Notes: ${s.notes}`)
+      lines.push(`  Photos: ${photosCount}`)
+      lines.push(`  Line total: ${formatCurrency(lineTotal, settings.currency)}`)
+    })
     lines.push('')
     lines.push(`Subtotal: ${formatCurrency(totals.subtotal, settings.currency)}`)
     if (settings.taxEnabled)
@@ -69,6 +70,8 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
     setStatusMessage('')
 
     let shared = false
+    let copied = false
+    let shareError: unknown
 
     if (shareAvailable) {
       try {
@@ -90,17 +93,27 @@ export const ShareBar = ({ disabled }: { disabled: boolean }) => {
           shared = true
         }
       } catch (e) {
+        shareError = e
         console.warn('share failed, trying clipboard', e)
       }
     }
 
     if (!shared) {
-      const copied = await copyQuoteToClipboard(text, clipboardAvailable)
+      copied = await copyQuoteToClipboard(text, clipboardAvailable)
       if (copied) {
-        setStatusMessage('Copied quote to clipboard.')
+        setStatusMessage(
+          shareAvailable
+            ? 'Sharing was blocked; copied quote to clipboard instead.'
+            : 'Copied quote to clipboard.',
+        )
         return
       }
-      setStatusMessage('Sharing is not available on this device.')
+
+      setStatusMessage(
+        shareError
+          ? 'Sharing and clipboard access were blocked. Please copy manually.'
+          : 'Sharing is not available in this browser.',
+      )
     }
   }
 
@@ -240,24 +253,24 @@ const buildQuotePdfFile = async (job: Job, settings: AppSettings, totals: QuoteT
   // table header
   pdf.setFont('helvetica', 'bold')
   pdf.text('Stump', margin, y)
-    pdf.text('Diameter', margin + 80, y)
-    pdf.text('Count', margin + 150, y)
-    pdf.text('Adjust', margin + 220, y)
-    pdf.text('Photos', margin + 280, y)
-    pdf.text('Line', margin + 340, y)
-    pdf.setFont('helvetica', 'normal')
-    y += lineHeight
-    pdf.line(margin, y - 10, margin + 380, y - 10)
+  pdf.text('Diameter', margin + 80, y)
+  pdf.text('Count', margin + 150, y)
+  pdf.text('Adjust', margin + 220, y)
+  pdf.text('Photos', margin + 280, y)
+  pdf.text('Line', margin + 340, y)
+  pdf.setFont('helvetica', 'normal')
+  y += lineHeight
+  pdf.line(margin, y - 10, margin + 380, y - 10)
 
-    job.stumps.forEach((s, idx) => {
-      pdf.text(`Stump ${idx + 1}`, margin, y)
-      pdf.text(`${s.diameter}\"`, margin + 80, y)
-      pdf.text(`${s.count || 1}`, margin + 150, y)
-      pdf.text(describeAdjustments(s) || '-', margin + 220, y, { maxWidth: 60 })
-      pdf.text(`${s.photos?.length || 0}`, margin + 280, y)
-      pdf.text(formatCurrency(stumpLineTotal(s, settings), settings.currency), margin + 340, y, { maxWidth: 120 })
-      y += lineHeight
-    })
+  job.stumps.forEach((s, idx) => {
+    pdf.text(`Stump ${idx + 1}`, margin, y)
+    pdf.text(`${s.diameter}"`, margin + 80, y)
+    pdf.text(`${s.count || 1}`, margin + 150, y)
+    pdf.text(describeAdjustments(s) || '-', margin + 220, y, { maxWidth: 60 })
+    pdf.text(`${s.photos?.length || 0}`, margin + 280, y)
+    pdf.text(formatCurrency(stumpLineTotal(s, settings), settings.currency), margin + 340, y, { maxWidth: 120 })
+    y += lineHeight
+  })
 
   y += lineHeight
   pdf.text(`Subtotal: ${formatCurrency(totals.subtotal, settings.currency)}`, margin, y)
